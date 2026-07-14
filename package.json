@@ -1,13 +1,15 @@
 {
   "name": "mobile-doctor",
-  "version": "0.1.0",
-  "description": "Device-driven diagnostics for mobile apps — GFX/jank benchmarking today, more categories over time.",
+  "version": "0.2.0",
+  "description": "Device-driven diagnostics for mobile apps — GFX/jank and memory benchmarking today, more categories over time.",
   "bin": {
     "mobile-doctor": "bin/mobile-doctor.js"
   },
   "scripts": {
     "devices": "node ./bin/mobile-doctor.js devices",
-    "gfx": "node ./bin/mobile-doctor.js gfx"
+    "gfx": "node ./bin/mobile-doctor.js gfx",
+    "memory": "node ./bin/mobile-doctor.js memory",
+    "report": "node ./bin/mobile-doctor.js report"
   },
   "engines": {
     "node": ">=18"

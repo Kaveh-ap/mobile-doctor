@@ -75,6 +75,10 @@ async function tap(x, y) {
   await execFileP("adb", ["shell", "input", "tap", String(x), String(y)]);
 }
 
+async function pressBack() {
+  await execFileP("adb", ["shell", "input", "keyevent", "KEYCODE_BACK"]);
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -90,5 +94,6 @@ module.exports = {
   dumpMemInfo,
   swipe,
   tap,
+  pressBack,
   sleep,
 };

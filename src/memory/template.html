@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mobile Doctor — Memory Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg: #0b1120;
+        --bg-soft: #0f172a;
+        --card: #131c31;
+        --card-border: rgba(148, 163, 184, 0.12);
+        --text: #e5e7eb;
+        --text-dim: #94a3b8;
+        --accent-a: #6366f1;
+        --accent-b: #22d3ee;
+        --good: #34d399;
+        --good-bg: rgba(52, 211, 153, 0.12);
+        --bad: #f87171;
+        --bad-bg: rgba(248, 113, 113, 0.12);
+        --radius: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: radial-gradient(circle at top, var(--bg-soft), var(--bg) 60%);
+        color: var(--text);
+        padding: 32px 24px 64px;
+      }
+
+      .page {
+        max-width: 1280px;
+        margin: 0 auto;
+      }
+
+      header.hero {
+        text-align: center;
+        margin-bottom: 32px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        padding: 6px 14px;
+        border-radius: 999px;
+        margin-bottom: 18px;
+      }
+
+      h1.title {
+        margin: 0 0 10px;
+        font-size: clamp(1.8rem, 3vw, 2.6rem);
+        font-weight: 800;
+        background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--text-dim);
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .legend-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        padding: 6px 14px 6px 10px;
+        font-size: 0.85rem;
+        color: var(--text);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+
+      .stat-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 20px;
+      }
+
+      .stat-label {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+      }
+
+      .stat-value {
+        font-size: 1.7rem;
+        font-weight: 700;
+      }
+
+      .badge {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      .badge.good {
+        color: var(--good);
+        background: var(--good-bg);
+      }
+
+      .badge.bad {
+        color: var(--bad);
+        background: var(--bad-bg);
+      }
+
+      .badge.flat {
+        color: var(--text-dim);
+        background: rgba(148, 163, 184, 0.12);
+      }
+
+      .section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 36px 0 16px;
+        color: var(--text);
+      }
+
+      .charts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .chart-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 20px;
+      }
+
+      .chart-card.full {
+        grid-column: 1 / -1;
+      }
+
+      .chart-card h3 {
+        margin: 0 0 4px;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .direction {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+
+      .direction.lower {
+        color: var(--good);
+        background: var(--good-bg);
+      }
+
+      .direction.neutral {
+        color: var(--text-dim);
+        background: rgba(148, 163, 184, 0.12);
+      }
+
+      .chart-card p.explain {
+        margin: 0 0 14px;
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        line-height: 1.5;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 280px;
+      }
+
+      .table-card {
+        margin-top: 16px;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 20px;
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--card-border);
+        white-space: nowrap;
+      }
+
+      th {
+        color: var(--text-dim);
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      td.improvement {
+        color: var(--good);
+        font-weight: 700;
+      }
+
+      td.regression {
+        color: var(--bad);
+        font-weight: 700;
+      }
+
+      footer {
+        text-align: center;
+        color: var(--text-dim);
+        font-size: 0.8rem;
+        margin-top: 40px;
+      }
+
+      .empty {
+        text-align: center;
+        color: var(--text-dim);
+        padding: 60px 20px;
+      }
+
+      @media (max-width: 860px) {
+        .charts {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <span class="eyebrow">🩺 mobile-doctor</span>
+        <h1 class="title">Memory Report</h1>
+        <p>Per-iteration <code>dumpsys meminfo</code> metrics, compared across runs.</p>
+        <div class="legend" id="legend"></div>
+      </header>
+
+      <div id="content"></div>
+
+      <footer>Generated locally by mobile-doctor — no data leaves your machine except the Chart.js CDN load.</footer>
+    </div>
+
+    <script>
+      // --- DATA ---
+      // Populated by src/report/index.js: one { name, csv } entry per
+      // selected run, named after its run folder.
+      const datasets = [];
+
+      function parseCSV(csv) {
+        const lines = csv.trim().split('\n');
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',');
+        return lines.slice(1).map((line) => {
+          const values = line.split(',');
+          const obj = {};
+          headers.forEach((h, i) => {
+            obj[h] = isNaN(values[i]) ? values[i] : Number(values[i]);
+          });
+          return obj;
+        });
+      }
+
+      // Distinct color per series; cycles if there are more runs than colors.
+      const COLORS = [
+        { r: 99, g: 102, b: 241 }, // indigo
+        { r: 52, g: 211, b: 153 }, // emerald
+        { r: 251, g: 191, b: 36 }, // amber
+        { r: 244, g: 114, b: 182 }, // pink
+        { r: 34, g: 211, b: 238 }, // cyan
+        { r: 167, g: 139, b: 250 }, // violet
+      ];
+      const rgba = (c, a) => `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`;
+
+      const series = datasets
+        .map((d, i) => ({
+          name: d.name,
+          color: COLORS[i % COLORS.length],
+          data: parseCSV(d.csv),
+        }))
+        .filter((s) => s.data.length > 0);
+
+      const contentEl = document.getElementById('content');
+      const legendEl = document.getElementById('legend');
+
+      if (series.length === 0) {
+        contentEl.innerHTML = '<p class="empty">No data to display.</p>';
+      } else {
+        legendEl.innerHTML = series
+          .map((s) => `<span class="legend-pill"><span class="dot" style="background:${rgba(s.color, 1)}"></span>${s.name}</span>`)
+          .join('');
+
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.12)';
+        Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+        const finals = series.map((s) => s.data[s.data.length - 1]);
+        const baseline = finals[0];
+        const latest = finals[finals.length - 1];
+
+        const metrics = [
+          { name: 'Total PSS', key: 'Total PSS (KB)', icon: '📦' },
+          { name: 'Total RSS', key: 'Total RSS (KB)', icon: '🧠' },
+          { name: 'Native Heap', key: 'Native Heap (KB)', icon: '🔧' },
+          { name: 'Dalvik Heap', key: 'Dalvik Heap (KB)', icon: '☕' },
+          { name: 'Views', key: 'Views', icon: '🖼️' },
+          { name: 'Activities', key: 'Activities', icon: '📱' },
+          { name: 'App Contexts', key: 'App Contexts', icon: '🗂️' },
+        ];
+
+        function deltaBadge(first, last) {
+          const diff = first - last;
+          if (diff === 0 || !isFinite(diff)) return '<span class="badge flat">flat</span>';
+          const pct = first ? Math.abs(((diff / first) * 100)).toFixed(1) : 0;
+          return diff > 0
+            ? `<span class="badge good">-${pct}%</span>`
+            : `<span class="badge bad">+${pct}%</span>`;
+        }
+
+        // --- SUMMARY STAT CARDS (first 4 curated metrics) ---
+        const statsHtml = metrics
+          .slice(0, 4)
+          .map((m) => {
+            const value = latest[m.key];
+            const display = typeof value === 'number' ? value.toLocaleString() : 'N/A';
+            const badge = series.length > 1 ? deltaBadge(baseline[m.key], latest[m.key]) : '';
+            return `
+              <div class="stat-card">
+                <div class="stat-label">${m.icon} ${m.name} (${series[series.length - 1].name})</div>
+                <div class="stat-value">${display}</div>
+                ${badge}
+              </div>
+            `;
+          })
+          .join('');
+
+        // --- DETAILED TABLE ---
+        const tableRows = metrics
+          .map((m) => {
+            const cells = finals.map((f) => `<td>${f[m.key] ?? 'N/A'}</td>`).join('');
+            let changeCell = '';
+            if (series.length > 1) {
+              const diff = baseline[m.key] - latest[m.key];
+              const pct = baseline[m.key] ? ((diff / baseline[m.key]) * 100).toFixed(2) : 0;
+              const cls = diff === 0 ? '' : diff > 0 ? 'improvement' : 'regression';
+              const label = diff === 0 ? '0%' : (diff > 0 ? '-' : '+') + Math.abs(pct) + '%';
+              changeCell = `<td class="${cls}">${label}</td>`;
+            }
+            return `<tr><td>${m.icon} ${m.name} <span class="direction lower">↓ lower</span></td>${cells}${changeCell}</tr>`;
+          })
+          .join('');
+
+        const changeHeader =
+          series.length > 1 ? `<th>Change (${series[0].name} → ${series[series.length - 1].name})</th>` : '';
+        const seriesHeaders = series.map((s) => `<th>${s.name}</th>`).join('');
+
+        // --- CHART SHELLS ---
+        const sampleCount = Math.max(...series.map((s) => s.data.length));
+        const labels = Array.from({ length: sampleCount }, (_, i) => `Iter ${i + 1}`);
+
+        contentEl.innerHTML = `
+          <div class="stats">${statsHtml}</div>
+
+          <div class="section-title">Trends across iterations</div>
+          <div class="charts">
+            <div class="chart-card">
+              <h3>📊 Key metrics — final state <span class="direction lower">↓ lower is better</span></h3>
+              <p class="explain">Snapshot of the same metrics at the last iteration of each run. Shorter bars mean less memory retained.</p>
+              <div class="chart-container"><canvas id="barChart"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3>📦 Total PSS over time (KB) <span class="direction lower">↓ lower is better</span></h3>
+              <p class="explain">Proportional Set Size — the app's overall memory footprint, tracked per iteration. A flatter, lower line means memory is being released rather than accumulating.</p>
+              <div class="chart-container"><canvas id="pssChart"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3>🔧☕ Native &amp; Dalvik heap (KB) <span class="direction lower">↓ lower is better</span></h3>
+              <p class="explain">Native heap (solid) vs. Dalvik/ART heap (dashed) per iteration — helps tell native leaks apart from managed-object leaks.</p>
+              <div class="chart-container"><canvas id="heapChart"></canvas></div>
+            </div>
+            <div class="chart-card full">
+              <h3>🖼️ View count over time <span class="direction lower">↓ lower is better</span></h3>
+              <p class="explain">Live View count per iteration — a steadily climbing line usually points at a view/window leak (e.g. a dialog or fragment not being torn down).</p>
+              <div class="chart-container"><canvas id="viewsChart"></canvas></div>
+            </div>
+          </div>
+
+          <div class="section-title">Full metrics table</div>
+          <div class="table-card">
+            <table>
+              <thead><tr><th>Metric</th>${seriesHeaders}${changeHeader}</tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        `;
+
+        // --- CHARTS ---
+        new Chart(document.getElementById('barChart'), {
+          type: 'bar',
+          data: {
+            labels: metrics.map((m) => m.name),
+            datasets: series.map((s, i) => ({
+              label: s.name,
+              data: metrics.map((m) => finals[i][m.key]),
+              backgroundColor: rgba(s.color, 0.75),
+              borderRadius: 6,
+            })),
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true } },
+          },
+        });
+
+        new Chart(document.getElementById('pssChart'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: series.map((s) => ({
+              label: s.name,
+              data: s.data.map((d) => d['Total PSS (KB)']),
+              borderColor: rgba(s.color, 1),
+              backgroundColor: rgba(s.color, 0.12),
+              fill: true,
+              tension: 0.3,
+            })),
+          },
+          options: { responsive: true, maintainAspectRatio: false },
+        });
+
+        new Chart(document.getElementById('heapChart'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: series.flatMap((s) => [
+              {
+                label: `${s.name} Native`,
+                data: s.data.map((d) => d['Native Heap (KB)']),
+                borderColor: rgba(s.color, 1),
+                fill: false,
+                tension: 0.2,
+              },
+              {
+                label: `${s.name} Dalvik`,
+                data: s.data.map((d) => d['Dalvik Heap (KB)']),
+                borderColor: rgba(s.color, 0.6),
+                borderDash: [5, 5],
+                fill: false,
+                tension: 0.2,
+              },
+            ]),
+          },
+          options: { responsive: true, maintainAspectRatio: false },
+        });
+
+        new Chart(document.getElementById('viewsChart'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: series.map((s) => ({
+              label: s.name,
+              data: s.data.map((d) => d['Views']),
+              borderColor: rgba(s.color, 1),
+              backgroundColor: rgba(s.color, 0.15),
+              fill: true,
+              tension: 0.2,
+            })),
+          },
+          options: { responsive: true, maintainAspectRatio: false },
+        });
+      }
+    </script>
+  </body>
+</html>

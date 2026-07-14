@@ -5,9 +5,10 @@
  * mobile-doctor — device-driven diagnostics for mobile apps.
  *
  * Categories live under src/<category>/index.js and are auto-discovered —
- * adding a new one (e.g. "memory") means dropping in a new folder, nothing
- * to wire up here. Same auto-discovery pattern one level down, for each
- * category's test types (see src/gfx/test-types/).
+ * adding a new one means dropping in a new folder, nothing to wire up here.
+ * Test types (the interaction driving each iteration — scroll, tap,
+ * navigate, ...) are shared across categories via src/lib/test-types/ and
+ * are auto-discovered the same way.
  *
  * Usage:
  *   mobile-doctor                       # prompts for a category

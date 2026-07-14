@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const gfxinfoParser = require("./lib/gfxinfo-parser");
+const meminfoParser = require("./lib/meminfo-parser");
 const { resolveUniqueName } = require("../lib/unique-name");
 
 function loadTestTypes() {
@@ -15,8 +15,8 @@ function loadTestTypes() {
 }
 
 module.exports = {
-  id: "gfx",
-  description: "GFX/jank benchmarking via adb dumpsys gfxinfo (scroll, tap, ...)",
+  id: "memory",
+  description: "Memory benchmarking via adb dumpsys meminfo (navigate, scroll, tap, ...)",
 
   async run({ adb, prompt, resultsRoot, configStore, log }) {
     await adb.checkAvailable();
@@ -25,7 +25,7 @@ module.exports = {
     }
 
     const testTypes = loadTestTypes();
-    const last = configStore.get("gfx");
+    const last = configStore.get("memory");
 
     const testTypeId = await prompt.askChoice(
       "Select test type:",
@@ -36,12 +36,12 @@ module.exports = {
     const packageName = await prompt.askText("Package name", last.packageName);
     if (!packageName) throw new Error("A package name is required.");
 
-    const runName = await prompt.askText("Run name", last.runName || "gfx-run");
-    const iterations = await prompt.askNumber("Number of iterations", 1);
+    const runName = await prompt.askText("Run name", last.runName || "memory-run");
+    const iterations = await prompt.askNumber("Number of iterations", 10);
 
-    // Nested under resultsRoot/gfx/ so multiple categories stay organized
-    // side by side as more get added (e.g. resultsRoot/memory/...).
-    const categoryResultsDir = path.join(resultsRoot, "gfx");
+    // Nested under resultsRoot/memory/ so it stays organized side by side
+    // with other categories (e.g. resultsRoot/gfx/...).
+    const categoryResultsDir = path.join(resultsRoot, "memory");
     fs.mkdirSync(categoryResultsDir, { recursive: true });
     const uniqueName = resolveUniqueName(categoryResultsDir, runName);
     const runDir = path.join(categoryResultsDir, uniqueName);
@@ -64,21 +64,12 @@ module.exports = {
     for (let i = 1; i <= iterations; i++) {
       console.log(`\n--- Iteration ${i}/${iterations} ---`);
 
-      log(`resetting gfxinfo for ${packageName}`);
-      await adb.resetGfxInfo(packageName);
-
       await testType.run({ adb, config: testConfig, log });
 
-      log("settling before dump...");
-      await adb.sleep(1000);
+      const rawMemInfo = await adb.dumpMemInfo(packageName);
+      fs.writeFileSync(path.join(rawDir, `meminfo-raw-${i}.txt`), rawMemInfo);
 
-      const rawGfxInfo = await adb.dumpGfxInfo(packageName);
-      const rawFrameStats = await adb.dumpFrameStats(packageName);
-
-      fs.writeFileSync(path.join(rawDir, `gfxinfo-raw-${i}.txt`), rawGfxInfo);
-      fs.writeFileSync(path.join(rawDir, `framestats-raw-${i}.txt`), rawFrameStats);
-
-      const parsed = gfxinfoParser.parseGfxInfo(rawGfxInfo, {
+      const parsed = meminfoParser.parseMemInfo(rawMemInfo, {
         timestamp: new Date().toISOString(),
         packageName,
       });
@@ -86,14 +77,14 @@ module.exports = {
       const isNewCsv = !fs.existsSync(csvPath);
       fs.appendFileSync(
         csvPath,
-        (isNewCsv ? gfxinfoParser.csvHeaderRow().join(",") + "\n" : "") +
-          gfxinfoParser.csvDataRow(parsed) +
+        (isNewCsv ? meminfoParser.csvHeaderRow().join(",") + "\n" : "") +
+          meminfoParser.csvDataRow(parsed) +
           "\n"
       );
 
       console.log(
-        `  frames=${parsed.totalFrames ?? "N/A"} janky=${parsed.jankyFrames ?? "N/A"} ` +
-          `(${parsed.jankyPercent ?? "N/A"}%) p90=${parsed.p90 ?? "N/A"}ms p95=${parsed.p95 ?? "N/A"}ms`
+        `  pss=${parsed.pss ?? "N/A"}KB nativeHeap=${parsed.nativeHeap ?? "N/A"}KB ` +
+          `dalvikHeap=${parsed.dalvikHeap ?? "N/A"}KB views=${parsed.views ?? "N/A"}`
       );
     }
 
@@ -112,9 +103,9 @@ module.exports = {
       )
     );
 
-    configStore.save("gfx", { packageName, runName });
+    configStore.save("memory", { packageName, runName });
 
     console.log(`\nDone. Results saved to: ${runDir}`);
-    console.log(`  summary.csv, meta.json, raw/gfxinfo-raw-*.txt, raw/framestats-raw-*.txt`);
+    console.log(`  summary.csv, meta.json, raw/meminfo-raw-*.txt`);
   },
 };
