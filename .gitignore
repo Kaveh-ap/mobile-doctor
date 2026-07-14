@@ -1,0 +1,4 @@
+node_modules/
+results/
+.mobile-doctor-config.json
+.DS_Store
