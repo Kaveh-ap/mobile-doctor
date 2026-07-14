@@ -5,6 +5,8 @@ const path = require("path");
 
 const gfxinfoParser = require("./lib/gfxinfo-parser");
 const { resolveUniqueName } = require("../lib/unique-name");
+const { getClack } = require("../lib/clack");
+const { createProgress } = require("../lib/progress");
 
 function loadTestTypes() {
   const dir = path.join(__dirname, "..", "lib", "test-types");
@@ -19,10 +21,16 @@ module.exports = {
   description: "GFX/jank benchmarking via adb dumpsys gfxinfo (scroll, tap, ...)",
 
   async run({ adb, prompt, resultsRoot, configStore, log }) {
+    const p = await getClack();
+
+    const deviceCheck = p.spinner();
+    deviceCheck.start("Checking adb & connected device");
     await adb.checkAvailable();
     if (!(await adb.hasConnectedDevice())) {
+      deviceCheck.error("No connected device/emulator found");
       throw new Error("No connected device/emulator found (check `adb devices`).");
     }
+    deviceCheck.stop("adb ready, device connected");
 
     const testTypes = loadTestTypes();
     const last = configStore.get("gfx");
@@ -47,9 +55,7 @@ module.exports = {
     const runDir = path.join(categoryResultsDir, uniqueName);
     fs.mkdirSync(runDir, { recursive: true });
 
-    console.log(`\nTest type: ${testType.id}`);
-    console.log(`Package:   ${packageName}`);
-    console.log(`Run dir:   ${runDir}\n`);
+    p.note(`Test type: ${testType.id}\nPackage:   ${packageName}\nRun dir:   ${runDir}`, "gfx run");
 
     const testConfig = await testType.promptConfig({ prompt, adb });
 
@@ -61,15 +67,14 @@ module.exports = {
 
     const csvPath = path.join(runDir, "summary.csv");
 
+    const progress = await createProgress(iterations);
     for (let i = 1; i <= iterations; i++) {
-      console.log(`\n--- Iteration ${i}/${iterations} ---`);
-
-      log(`resetting gfxinfo for ${packageName}`);
+      progress.advance(0, `iteration ${i}/${iterations}: resetting gfxinfo`);
       await adb.resetGfxInfo(packageName);
 
       await testType.run({ adb, config: testConfig, log });
 
-      log("settling before dump...");
+      progress.advance(0, `iteration ${i}/${iterations}: settling before dump`);
       await adb.sleep(1000);
 
       const rawGfxInfo = await adb.dumpGfxInfo(packageName);
@@ -91,11 +96,12 @@ module.exports = {
           "\n"
       );
 
-      console.log(
-        `  frames=${parsed.totalFrames ?? "N/A"} janky=${parsed.jankyFrames ?? "N/A"} ` +
-          `(${parsed.jankyPercent ?? "N/A"}%) p90=${parsed.p90 ?? "N/A"}ms p95=${parsed.p95 ?? "N/A"}ms`
+      progress.advance(
+        1,
+        `iteration ${i}/${iterations}: janky=${parsed.jankyPercent ?? "N/A"}% p90=${parsed.p90 ?? "N/A"}ms p95=${parsed.p95 ?? "N/A"}ms`
       );
     }
+    progress.stop(`Collected ${iterations} iteration${iterations === 1 ? "" : "s"}.`);
 
     fs.writeFileSync(
       path.join(runDir, "meta.json"),
@@ -114,7 +120,8 @@ module.exports = {
 
     configStore.save("gfx", { packageName, runName });
 
-    console.log(`\nDone. Results saved to: ${runDir}`);
-    console.log(`  summary.csv, meta.json, raw/gfxinfo-raw-*.txt, raw/framestats-raw-*.txt`);
+    p.log.success(
+      `Results saved to: ${runDir}\n(summary.csv, meta.json, raw/gfxinfo-raw-*.txt, raw/framestats-raw-*.txt)`
+    );
   },
 };

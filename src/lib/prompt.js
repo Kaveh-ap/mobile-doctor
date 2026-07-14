@@ -1,45 +1,56 @@
 "use strict";
 
-const readline = require("readline");
+const { getClack } = require("./clack");
 
-function ask(question) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
+function bail(p) {
+  p.cancel("Cancelled.");
+  process.exit(0);
 }
 
 async function askText(label, fallback) {
-  const suffix = fallback !== undefined ? ` [${fallback}]` : "";
-  const answer = await ask(`${label}${suffix}: `);
-  return answer || fallback;
+  const p = await getClack();
+  const result = await p.text({
+    message: label,
+    placeholder: fallback !== undefined ? String(fallback) : undefined,
+    defaultValue: fallback !== undefined ? String(fallback) : undefined,
+  });
+  if (p.isCancel(result)) bail(p);
+  return result || fallback;
 }
 
 async function askNumber(label, fallback) {
-  const answer = await askText(label, String(fallback));
-  const parsed = Number(answer);
+  const p = await getClack();
+  const result = await p.text({
+    message: label,
+    placeholder: String(fallback),
+    defaultValue: String(fallback),
+    validate(value) {
+      if (!value) return undefined;
+      return Number.isFinite(Number(value)) ? undefined : "Enter a valid number.";
+    },
+  });
+  if (p.isCancel(result)) bail(p);
+  const parsed = Number(result);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 /**
  * @param {string} label
- * @param {Array<{ id: string, description: string }>} options
+ * @param {Array<{ id: string, label?: string, description?: string }>} options
  * @returns {Promise<string>} the chosen option's id
  */
 async function askChoice(label, options) {
-  console.log(label);
-  options.forEach((option, i) => {
-    console.log(`  ${i + 1}) ${option.id} — ${option.description}`);
+  const p = await getClack();
+  const result = await p.select({
+    message: label,
+    options: options.map((option) => ({
+      value: option.id,
+      label: option.label || option.id,
+      hint: option.description,
+    })),
   });
-  const answer = await askText(`Choice (1-${options.length})`, "1");
-  const index = Number(answer) - 1;
-  return options[index] ? options[index].id : options[0].id;
+  if (p.isCancel(result)) bail(p);
+  return result;
 }
 
 module.exports = { askText, askNumber, askChoice };

@@ -5,6 +5,7 @@ const path = require("path");
 const { execFile } = require("child_process");
 
 const { resolveUniqueName } = require("../lib/unique-name");
+const { getClack } = require("../lib/clack");
 
 // Any category that produces run folders with a summary.csv (gfx, memory,
 // ...) can be reported on, as long as it ships its own src/<category>/
@@ -53,6 +54,8 @@ module.exports = {
   description: "Build an HTML comparison report from one or more gfx/memory runs",
 
   async run({ prompt, resultsRoot, log }) {
+    const p = await getClack();
+
     const available = REPORTABLE_CATEGORIES.filter(
       (c) => listRuns(path.join(resultsRoot, c.id)).length > 0
     );
@@ -71,26 +74,22 @@ module.exports = {
     const categoryDir = path.join(resultsRoot, categoryId);
     const runs = listRuns(categoryDir);
 
-    console.log(`Available ${categoryId} runs:`);
-    runs.forEach((run, i) => {
-      const suffix = run.iterations ? ` (${run.iterations} iteration${run.iterations === 1 ? "" : "s"})` : "";
-      console.log(`  ${i + 1}) ${run.name}${suffix}`);
+    const selectedNames = await p.multiselect({
+      message: `Select ${categoryId} run(s) to include:`,
+      options: runs.map((run) => ({
+        value: run.name,
+        label: run.name,
+        hint: run.iterations ? `${run.iterations} iteration${run.iterations === 1 ? "" : "s"}` : undefined,
+      })),
+      initialValues: runs.map((run) => run.name),
+      required: true,
     });
-
-    const selection = await prompt.askText(
-      `Select run(s) to include, comma-separated (e.g. 1,3)`,
-      runs.length === 1 ? "1" : runs.map((_, i) => i + 1).join(",")
-    );
-
-    const indices = [...new Set(selection.split(",").map((s) => Number(s.trim()) - 1))].filter(
-      (i) => Number.isInteger(i) && i >= 0 && i < runs.length
-    );
-
-    if (indices.length === 0) {
-      throw new Error("No valid runs selected.");
+    if (p.isCancel(selectedNames)) {
+      p.cancel("Cancelled.");
+      process.exit(0);
     }
 
-    const selectedRuns = indices.map((i) => runs[i]);
+    const selectedRuns = runs.filter((run) => selectedNames.includes(run.name));
 
     const datasets = selectedRuns.map((run) => ({
       name: run.name,
@@ -114,6 +113,6 @@ module.exports = {
 
     log(`Report written to: ${reportPath}`);
     openInBrowser(reportPath);
-    console.log(`\nDone. Opening report in your default browser.`);
+    p.log.success("Opening report in your default browser.");
   },
 };

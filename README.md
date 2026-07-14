@@ -2,10 +2,14 @@
 
 [![npm version](https://img.shields.io/npm/v/mobile-doctor.svg)](https://www.npmjs.com/package/mobile-doctor)
 
-Device-driven diagnostics for mobile apps — GFX/jank benchmarking, HTML
-comparison reports, and device lifecycle management today, more categories
-over time. No project-specific package name, coordinates, or paths are
-hardcoded anywhere in here.
+Device-driven diagnostics for mobile apps — GFX/jank benchmarking, memory
+benchmarking, HTML comparison reports, and device lifecycle management
+today, more categories over time. No project-specific package name,
+coordinates, or paths are hardcoded anywhere in here.
+
+The CLI itself is built on [`@clack/prompts`](https://github.com/bombshell-dev/clack) —
+arrow-key select menus, spinners, and progress bars instead of typed-number
+menus and scrolling log spam.
 
 ## Table of contents
 
@@ -174,10 +178,10 @@ mobile-doctor report
 ```
 
 If both categories have runs on disk, you'll first be asked which one to
-report on. Then you'll be prompted to pick which run(s) to include
-(comma-separated, e.g. `1,3`) and a name for the report file. It's written
-to `results/<category>/reports/<name>.html` and opened in your default
-browser automatically. The report includes:
+report on. Then you'll get a checkbox list to pick which run(s) to include
+(all selected by default — space to toggle, enter to confirm) and a name
+for the report file. It's written to `results/<category>/reports/<name>.html`
+and opened in your default browser automatically. The report includes:
 
 - A **final-metrics table** comparing the last iteration of every selected
   run, with a % change column between the first and last run picked.
@@ -231,6 +235,6 @@ Working on `mobile-doctor` itself? Link it instead of installing it:
 ```bash
 git clone https://github.com/Kaveh-ap/mobile-doctor.git
 cd mobile-doctor
-yarn install       # no runtime dependencies today, but keeps this a real project
+yarn install       # installs @clack/prompts, the only runtime dependency
 yarn link          # exposes `mobile-doctor` globally, pointing at this clone
 ```

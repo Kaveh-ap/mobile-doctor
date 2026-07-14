@@ -21,7 +21,9 @@ const path = require("path");
 
 const adb = require("../src/lib/adb");
 const prompt = require("../src/lib/prompt");
+const { getClack } = require("../src/lib/clack");
 const { makeConfigStore } = require("../src/lib/config-store");
+const { version } = require("../package.json");
 
 const ROOT = path.join(__dirname, "..");
 
@@ -44,11 +46,12 @@ function resolveResultsRoot() {
   return path.join(process.cwd(), "results");
 }
 
-function log(message) {
-  console.log(`  ${message}`);
-}
-
 async function main() {
+  const p = await getClack();
+  const log = (message) => p.log.step(message);
+
+  p.intro(`🩺 mobile-doctor v${version}`);
+
   const categories = loadCategories();
   const requestedId =
     process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : undefined;
@@ -66,7 +69,15 @@ async function main() {
   fs.mkdirSync(resultsRoot, { recursive: true });
   const configStore = makeConfigStore(path.join(ROOT, ".mobile-doctor-config.json"));
 
-  await category.run({ adb, prompt, resultsRoot, configStore, log });
+  try {
+    await category.run({ adb, prompt, resultsRoot, configStore, log });
+  } catch (error) {
+    p.log.error(error.message);
+    p.outro("Failed.");
+    process.exit(1);
+  }
+
+  p.outro("Done.");
 }
 
 main().catch((error) => {

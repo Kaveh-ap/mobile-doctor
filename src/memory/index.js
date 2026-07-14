@@ -5,6 +5,8 @@ const path = require("path");
 
 const meminfoParser = require("./lib/meminfo-parser");
 const { resolveUniqueName } = require("../lib/unique-name");
+const { getClack } = require("../lib/clack");
+const { createProgress } = require("../lib/progress");
 
 function loadTestTypes() {
   const dir = path.join(__dirname, "..", "lib", "test-types");
@@ -19,10 +21,16 @@ module.exports = {
   description: "Memory benchmarking via adb dumpsys meminfo (navigate, scroll, tap, ...)",
 
   async run({ adb, prompt, resultsRoot, configStore, log }) {
+    const p = await getClack();
+
+    const deviceCheck = p.spinner();
+    deviceCheck.start("Checking adb & connected device");
     await adb.checkAvailable();
     if (!(await adb.hasConnectedDevice())) {
+      deviceCheck.error("No connected device/emulator found");
       throw new Error("No connected device/emulator found (check `adb devices`).");
     }
+    deviceCheck.stop("adb ready, device connected");
 
     const testTypes = loadTestTypes();
     const last = configStore.get("memory");
@@ -47,9 +55,7 @@ module.exports = {
     const runDir = path.join(categoryResultsDir, uniqueName);
     fs.mkdirSync(runDir, { recursive: true });
 
-    console.log(`\nTest type: ${testType.id}`);
-    console.log(`Package:   ${packageName}`);
-    console.log(`Run dir:   ${runDir}\n`);
+    p.note(`Test type: ${testType.id}\nPackage:   ${packageName}\nRun dir:   ${runDir}`, "memory run");
 
     const testConfig = await testType.promptConfig({ prompt, adb });
 
@@ -61,11 +67,12 @@ module.exports = {
 
     const csvPath = path.join(runDir, "summary.csv");
 
+    const progress = await createProgress(iterations);
     for (let i = 1; i <= iterations; i++) {
-      console.log(`\n--- Iteration ${i}/${iterations} ---`);
-
+      progress.advance(0, `iteration ${i}/${iterations}: running interaction`);
       await testType.run({ adb, config: testConfig, log });
 
+      progress.advance(0, `iteration ${i}/${iterations}: dumping meminfo`);
       const rawMemInfo = await adb.dumpMemInfo(packageName);
       fs.writeFileSync(path.join(rawDir, `meminfo-raw-${i}.txt`), rawMemInfo);
 
@@ -82,11 +89,12 @@ module.exports = {
           "\n"
       );
 
-      console.log(
-        `  pss=${parsed.pss ?? "N/A"}KB nativeHeap=${parsed.nativeHeap ?? "N/A"}KB ` +
-          `dalvikHeap=${parsed.dalvikHeap ?? "N/A"}KB views=${parsed.views ?? "N/A"}`
+      progress.advance(
+        1,
+        `iteration ${i}/${iterations}: pss=${parsed.pss ?? "N/A"}KB nativeHeap=${parsed.nativeHeap ?? "N/A"}KB views=${parsed.views ?? "N/A"}`
       );
     }
+    progress.stop(`Collected ${iterations} iteration${iterations === 1 ? "" : "s"}.`);
 
     fs.writeFileSync(
       path.join(runDir, "meta.json"),
@@ -105,7 +113,6 @@ module.exports = {
 
     configStore.save("memory", { packageName, runName });
 
-    console.log(`\nDone. Results saved to: ${runDir}`);
-    console.log(`  summary.csv, meta.json, raw/meminfo-raw-*.txt`);
+    p.log.success(`Results saved to: ${runDir}\n(summary.csv, meta.json, raw/meminfo-raw-*.txt)`);
   },
 };

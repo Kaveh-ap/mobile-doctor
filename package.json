@@ -23,5 +23,8 @@
     "url": "git+https://github.com/Kaveh-ap/mobile-doctor.git"
   },
   "author": "Kaveh <kaveh.alipour1993@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^1.7.0"
+  }
 }
