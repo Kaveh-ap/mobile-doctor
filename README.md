@@ -1,5 +1,7 @@
 # mobile-doctor
 
+[![npm version](https://img.shields.io/npm/v/mobile-doctor.svg)](https://www.npmjs.com/package/mobile-doctor)
+
 Device-driven diagnostics for mobile apps. GFX/jank benchmarking
 (`adb shell dumpsys gfxinfo`-based scroll/tap tests) and device
 lifecycle (boot an iOS Simulator/Android emulator) today, more categories
