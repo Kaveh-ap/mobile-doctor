@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Device-driven diagnostics for mobile apps — GFX/jank benchmarking today, more categories over time.",
   "bin": {
-    "mobile-doctor": "./bin/mobile-doctor.js"
+    "mobile-doctor": "bin/mobile-doctor.js"
   },
   "scripts": {
     "devices": "node ./bin/mobile-doctor.js devices",
