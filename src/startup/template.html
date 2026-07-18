@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mobile Doctor — GFX Report</title>
+    <title>Mobile Doctor — Startup Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
       :root {
@@ -321,8 +321,8 @@
 
       <header class="hero">
         <span class="eyebrow">🩺 mobile-doctor</span>
-        <h1 class="title">GFX Performance Report</h1>
-        <p>Cumulative <code>dumpsys gfxinfo</code> metrics, compared across runs.</p>
+        <h1 class="title">App Startup Report</h1>
+        <p>Launch latency via <code>adb shell am start -W</code>, compared across runs.</p>
         <div class="legend" id="legend"></div>
       </header>
 
@@ -408,13 +408,9 @@
         const latest = finals[finals.length - 1];
 
         const metrics = [
-          { name: 'Janky %', key: 'Janky %', icon: '🃏' },
-          { name: '95th pct (ms)', key: '95th percentile (ms)', icon: '⏱️' },
-          { name: '99th pct (ms)', key: '99th percentile (ms)', icon: '🐢' },
-          { name: 'Missed Vsync', key: 'Missed Vsync', icon: '📉' },
-          { name: 'Slow UI Thread', key: 'Slow UI Thread', icon: '🧵' },
-          { name: 'Slow Bitmap Uploads', key: 'Slow Bitmap Uploads', icon: '🖼️' },
-          { name: 'Slow Issue Draw Cmds', key: 'Slow Issue Draw Commands', icon: '✏️' },
+          { name: 'Total Time', key: 'Total Time (ms)', icon: '🚀' },
+          { name: 'Wait Time', key: 'Wait Time (ms)', icon: '⏳' },
+          { name: 'This Time', key: 'This Time (ms)', icon: '🎬' },
         ];
 
         function deltaBadge(first, last) {
@@ -426,12 +422,11 @@
             : `<span class="badge bad">+${pct}%</span>`;
         }
 
-        // --- SUMMARY STAT CARDS (first 4 curated metrics) ---
+        // --- SUMMARY STAT CARDS ---
         const statsHtml = metrics
-          .slice(0, 4)
           .map((m) => {
             const value = latest[m.key];
-            const display = typeof value === 'number' ? value.toLocaleString() : 'N/A';
+            const display = typeof value === 'number' ? `${value.toLocaleString()} ms` : 'N/A';
             const badge = series.length > 1 ? deltaBadge(baseline[m.key], latest[m.key]) : '';
             return `
               <div class="stat-card">
@@ -474,28 +469,18 @@
           <div class="charts">
             <div class="chart-card">
               <h3>📊 Key metrics — final state <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Snapshot of the same cumulative metrics at the last iteration of each run. Shorter bars mean a smoother UI.</p>
+              <p class="explain">Snapshot of the same metrics at the last iteration of each run. Shorter bars mean a faster launch.</p>
               <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
             <div class="chart-card">
-              <h3>🃏 Janky % over time <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Share of rendered frames that were janky, tracked per iteration. A flatter, lower line means the UI stays smooth.</p>
-              <div class="chart-container"><canvas id="jankyPctChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <h3>🎞️ Total frames accumulation <span class="direction neutral">neutral</span></h3>
-              <p class="explain">Raw frame count rendered so far — a measure of coverage, not quality. Use it to confirm runs cover comparable activity.</p>
-              <div class="chart-container"><canvas id="totalFramesChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <h3>⏱️ P95 &amp; P99 frame time (ms) <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Frame time under which 95%/99% of frames fall — how bad the worst frames are. Dashed = P95, solid = P99.</p>
-              <div class="chart-container"><canvas id="percentilesChart"></canvas></div>
+              <h3>🚀 Total Time over iterations (ms) <span class="direction lower">↓ lower is better</span></h3>
+              <p class="explain">Time ActivityManager reports from launch request to first frame drawn, tracked per iteration. A flatter, lower line means launch is consistently fast.</p>
+              <div class="chart-container"><canvas id="totalTimeChart"></canvas></div>
             </div>
             <div class="chart-card full">
-              <h3>📉 Janky frames accumulation <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Running total of janky frames across iterations. A flatter line means jank accumulates less often.</p>
-              <div class="chart-container"><canvas id="jankyFramesChart"></canvas></div>
+              <h3>⏳🎬 Wait Time &amp; This Time (ms) <span class="direction lower">↓ lower is better</span></h3>
+              <p class="explain">Wait Time (dashed) includes extra ActivityManager bookkeeping on top of This Time (solid) — the time for the launched activity itself to draw. A gap between them that grows over iterations points at scheduling overhead rather than the app's own startup work.</p>
+              <div class="chart-container"><canvas id="waitThisChart"></canvas></div>
             </div>
           </div>
 
@@ -528,13 +513,13 @@
           },
         });
 
-        new Chart(document.getElementById('jankyPctChart'), {
+        new Chart(document.getElementById('totalTimeChart'), {
           type: 'line',
           data: {
             labels,
             datasets: series.map((s) => ({
               label: s.name,
-              data: s.data.map((d) => d['Janky %']),
+              data: s.data.map((d) => d['Total Time (ms)']),
               borderColor: rgba(s.color, 1),
               backgroundColor: rgba(s.color, 0.12),
               fill: true,
@@ -544,58 +529,27 @@
           options: { responsive: true, maintainAspectRatio: false },
         });
 
-        new Chart(document.getElementById('totalFramesChart'), {
-          type: 'line',
-          data: {
-            labels,
-            datasets: series.map((s) => ({
-              label: s.name,
-              data: s.data.map((d) => d['Total Frames']),
-              borderColor: rgba(s.color, 1),
-              fill: false,
-              tension: 0.2,
-            })),
-          },
-          options: { responsive: true, maintainAspectRatio: false },
-        });
-
-        new Chart(document.getElementById('percentilesChart'), {
+        new Chart(document.getElementById('waitThisChart'), {
           type: 'line',
           data: {
             labels,
             datasets: series.flatMap((s) => [
               {
-                label: `${s.name} P95`,
-                data: s.data.map((d) => d['95th percentile (ms)']),
+                label: `${s.name} Wait Time`,
+                data: s.data.map((d) => d['Wait Time (ms)']),
                 borderColor: rgba(s.color, 1),
                 borderDash: [5, 5],
                 fill: false,
                 tension: 0.2,
               },
               {
-                label: `${s.name} P99`,
-                data: s.data.map((d) => d['99th percentile (ms)']),
+                label: `${s.name} This Time`,
+                data: s.data.map((d) => d['This Time (ms)']),
                 borderColor: rgba(s.color, 0.6),
                 fill: false,
                 tension: 0.2,
               },
             ]),
-          },
-          options: { responsive: true, maintainAspectRatio: false },
-        });
-
-        new Chart(document.getElementById('jankyFramesChart'), {
-          type: 'line',
-          data: {
-            labels,
-            datasets: series.map((s) => ({
-              label: s.name,
-              data: s.data.map((d) => d['Janky Frames']),
-              borderColor: rgba(s.color, 1),
-              backgroundColor: rgba(s.color, 0.15),
-              fill: true,
-              tension: 0.2,
-            })),
           },
           options: { responsive: true, maintainAspectRatio: false },
         });

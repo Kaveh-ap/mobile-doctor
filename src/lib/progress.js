@@ -14,7 +14,13 @@ async function createProgress(total) {
   bar.start("Starting...");
   return {
     advance: (step, message) => bar.advance(step, message),
-    stop: (message) => bar.stop(message),
+    stop: (message) => {
+      bar.stop(message);
+      // clack's spinner ends flush with a single "\n" — without a blank
+      // line after it, whatever prints next sits edge-to-edge against the
+      // final bar frame.
+      process.stdout.write("\n");
+    },
   };
 }
 

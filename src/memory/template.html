@@ -39,6 +39,44 @@
         margin: 0 auto;
       }
 
+      .report-nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 28px;
+      }
+
+      .report-nav-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1px solid var(--card-border);
+        background: var(--card);
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: border-color 0.15s, color 0.15s;
+      }
+
+      a.report-nav-pill:hover {
+        border-color: var(--accent-b);
+        color: var(--text);
+      }
+
+      .report-nav-pill.active {
+        background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+        color: #0b1120;
+        border-color: transparent;
+      }
+
+      .report-nav-pill.disabled {
+        opacity: 0.4;
+      }
+
       header.hero {
         text-align: center;
         margin-bottom: 32px;
@@ -279,6 +317,8 @@
   </head>
   <body>
     <div class="page">
+      <nav class="report-nav" id="reportNav"></nav>
+
       <header class="hero">
         <span class="eyebrow">🩺 mobile-doctor</span>
         <h1 class="title">Memory Report</h1>
@@ -292,6 +332,25 @@
     </div>
 
     <script>
+      // --- NAV ---
+      // Populated by src/report/index.js: one entry per category, linking
+      // to its most recently generated report (relative to this file) so
+      // you can jump between gfx/memory/cpu/... without reopening the CLI.
+      // Frozen at generation time — regenerate a report to refresh its
+      // links to whatever's newest in other categories.
+      const navLinks = [];
+      const navEl = document.getElementById('reportNav');
+      if (navEl) {
+        navEl.innerHTML = navLinks
+          .map((n) => {
+            if (!n.href) {
+              return `<span class="report-nav-pill disabled">${n.icon} ${n.label}</span>`;
+            }
+            return `<a class="report-nav-pill${n.active ? ' active' : ''}" href="${n.href}">${n.icon} ${n.label}</a>`;
+          })
+          .join('');
+      }
+
       // --- DATA ---
       // Populated by src/report/index.js: one { name, csv } entry per
       // selected run, named after its run folder.

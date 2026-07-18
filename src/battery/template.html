@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mobile Doctor — GFX Report</title>
+    <title>Mobile Doctor — Battery Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
       :root {
@@ -321,8 +321,8 @@
 
       <header class="hero">
         <span class="eyebrow">🩺 mobile-doctor</span>
-        <h1 class="title">GFX Performance Report</h1>
-        <p>Cumulative <code>dumpsys gfxinfo</code> metrics, compared across runs.</p>
+        <h1 class="title">Battery Report</h1>
+        <p>Level/temperature trend via <code>adb shell dumpsys battery</code>, compared across runs.</p>
         <div class="legend" id="legend"></div>
       </header>
 
@@ -407,17 +407,23 @@
         const baseline = finals[0];
         const latest = finals[finals.length - 1];
 
+        // Unlike gfx/memory/cpu, "lower is better" doesn't hold across the
+        // board here: level and voltage just track battery state, only
+        // temperature is unambiguously better when lower.
         const metrics = [
-          { name: 'Janky %', key: 'Janky %', icon: '🃏' },
-          { name: '95th pct (ms)', key: '95th percentile (ms)', icon: '⏱️' },
-          { name: '99th pct (ms)', key: '99th percentile (ms)', icon: '🐢' },
-          { name: 'Missed Vsync', key: 'Missed Vsync', icon: '📉' },
-          { name: 'Slow UI Thread', key: 'Slow UI Thread', icon: '🧵' },
-          { name: 'Slow Bitmap Uploads', key: 'Slow Bitmap Uploads', icon: '🖼️' },
-          { name: 'Slow Issue Draw Cmds', key: 'Slow Issue Draw Commands', icon: '✏️' },
+          { name: 'Battery Level', key: 'Battery Level (%)', icon: '🔋', direction: 'neutral', unit: '%' },
+          { name: 'Temperature', key: 'Temperature (C)', icon: '🌡️', direction: 'lower', unit: '°C' },
+          { name: 'Voltage', key: 'Voltage (mV)', icon: '⚡', direction: 'neutral', unit: 'mV' },
         ];
 
-        function deltaBadge(first, last) {
+        function directionBadge(m) {
+          return m.direction === 'lower'
+            ? '<span class="direction lower">↓ lower is better</span>'
+            : '<span class="direction neutral">neutral</span>';
+        }
+
+        function deltaBadge(first, last, direction) {
+          if (direction === 'neutral') return '';
           const diff = first - last;
           if (diff === 0 || !isFinite(diff)) return '<span class="badge flat">flat</span>';
           const pct = first ? Math.abs(((diff / first) * 100)).toFixed(1) : 0;
@@ -426,13 +432,12 @@
             : `<span class="badge bad">+${pct}%</span>`;
         }
 
-        // --- SUMMARY STAT CARDS (first 4 curated metrics) ---
+        // --- SUMMARY STAT CARDS ---
         const statsHtml = metrics
-          .slice(0, 4)
           .map((m) => {
             const value = latest[m.key];
-            const display = typeof value === 'number' ? value.toLocaleString() : 'N/A';
-            const badge = series.length > 1 ? deltaBadge(baseline[m.key], latest[m.key]) : '';
+            const display = typeof value === 'number' ? `${value.toLocaleString()}${m.unit}` : 'N/A';
+            const badge = series.length > 1 ? deltaBadge(baseline[m.key], latest[m.key], m.direction) : '';
             return `
               <div class="stat-card">
                 <div class="stat-label">${m.icon} ${m.name} (${series[series.length - 1].name})</div>
@@ -451,11 +456,12 @@
             if (series.length > 1) {
               const diff = baseline[m.key] - latest[m.key];
               const pct = baseline[m.key] ? ((diff / baseline[m.key]) * 100).toFixed(2) : 0;
-              const cls = diff === 0 ? '' : diff > 0 ? 'improvement' : 'regression';
+              const cls =
+                m.direction === 'neutral' ? '' : diff === 0 ? '' : diff > 0 ? 'improvement' : 'regression';
               const label = diff === 0 ? '0%' : (diff > 0 ? '-' : '+') + Math.abs(pct) + '%';
               changeCell = `<td class="${cls}">${label}</td>`;
             }
-            return `<tr><td>${m.icon} ${m.name} <span class="direction lower">↓ lower</span></td>${cells}${changeCell}</tr>`;
+            return `<tr><td>${m.icon} ${m.name} ${directionBadge(m)}</td>${cells}${changeCell}</tr>`;
           })
           .join('');
 
@@ -466,36 +472,32 @@
         // --- CHART SHELLS ---
         const sampleCount = Math.max(...series.map((s) => s.data.length));
         const labels = Array.from({ length: sampleCount }, (_, i) => `Iter ${i + 1}`);
+        const anyCharging = series.some((s) => s.data.some((d) => d['Charging'] === 'yes'));
 
         contentEl.innerHTML = `
           <div class="stats">${statsHtml}</div>
+          ${
+            anyCharging
+              ? '<p class="explain" style="margin:-16px 0 20px;color:var(--bad);">⚠️ At least one iteration in these runs was recorded while charging — level/drain trends below aren\'t reliable for those samples.</p>'
+              : ''
+          }
 
           <div class="section-title">Trends across iterations</div>
           <div class="charts">
             <div class="chart-card">
-              <h3>📊 Key metrics — final state <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Snapshot of the same cumulative metrics at the last iteration of each run. Shorter bars mean a smoother UI.</p>
+              <h3>📊 Key metrics — final state</h3>
+              <p class="explain">Snapshot of level and temperature at the last iteration of each run (voltage is in the table below — its mV scale would dwarf these on the same chart).</p>
               <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
             <div class="chart-card">
-              <h3>🃏 Janky % over time <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Share of rendered frames that were janky, tracked per iteration. A flatter, lower line means the UI stays smooth.</p>
-              <div class="chart-container"><canvas id="jankyPctChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <h3>🎞️ Total frames accumulation <span class="direction neutral">neutral</span></h3>
-              <p class="explain">Raw frame count rendered so far — a measure of coverage, not quality. Use it to confirm runs cover comparable activity.</p>
-              <div class="chart-container"><canvas id="totalFramesChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <h3>⏱️ P95 &amp; P99 frame time (ms) <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Frame time under which 95%/99% of frames fall — how bad the worst frames are. Dashed = P95, solid = P99.</p>
-              <div class="chart-container"><canvas id="percentilesChart"></canvas></div>
+              <h3>🔋 Battery level over iterations (%) <span class="direction neutral">neutral</span></h3>
+              <p class="explain">Watch the slope, not the endpoint — runs that start at different battery levels aren't directly comparable on the raw number, but a steeper drop means faster drain.</p>
+              <div class="chart-container"><canvas id="levelChart"></canvas></div>
             </div>
             <div class="chart-card full">
-              <h3>📉 Janky frames accumulation <span class="direction lower">↓ lower is better</span></h3>
-              <p class="explain">Running total of janky frames across iterations. A flatter line means jank accumulates less often.</p>
-              <div class="chart-container"><canvas id="jankyFramesChart"></canvas></div>
+              <h3>🌡️ Temperature over iterations (°C) <span class="direction lower">↓ lower is better</span></h3>
+              <p class="explain">Battery temperature per iteration — a steadily climbing line under sustained interaction points at thermal stress, which typically precedes CPU/GPU throttling.</p>
+              <div class="chart-container"><canvas id="tempChart"></canvas></div>
             </div>
           </div>
 
@@ -509,13 +511,18 @@
         `;
 
         // --- CHARTS ---
+        // Voltage (thousands of mV) shares no useful scale with level (%)
+        // or temperature (°C) — plotted together it dwarfs both into
+        // invisible slivers, so it's left out of this chart (still in the
+        // table below).
+        const barMetrics = metrics.filter((m) => m.key !== 'Voltage (mV)');
         new Chart(document.getElementById('barChart'), {
           type: 'bar',
           data: {
-            labels: metrics.map((m) => m.name),
+            labels: barMetrics.map((m) => m.name),
             datasets: series.map((s, i) => ({
               label: s.name,
-              data: metrics.map((m) => finals[i][m.key]),
+              data: barMetrics.map((m) => finals[i][m.key]),
               backgroundColor: rgba(s.color, 0.75),
               borderRadius: 6,
             })),
@@ -528,71 +535,31 @@
           },
         });
 
-        new Chart(document.getElementById('jankyPctChart'), {
+        new Chart(document.getElementById('levelChart'), {
           type: 'line',
           data: {
             labels,
             datasets: series.map((s) => ({
               label: s.name,
-              data: s.data.map((d) => d['Janky %']),
+              data: s.data.map((d) => d['Battery Level (%)']),
               borderColor: rgba(s.color, 1),
               backgroundColor: rgba(s.color, 0.12),
               fill: true,
-              tension: 0.3,
-            })),
-          },
-          options: { responsive: true, maintainAspectRatio: false },
-        });
-
-        new Chart(document.getElementById('totalFramesChart'), {
-          type: 'line',
-          data: {
-            labels,
-            datasets: series.map((s) => ({
-              label: s.name,
-              data: s.data.map((d) => d['Total Frames']),
-              borderColor: rgba(s.color, 1),
-              fill: false,
               tension: 0.2,
             })),
           },
           options: { responsive: true, maintainAspectRatio: false },
         });
 
-        new Chart(document.getElementById('percentilesChart'), {
-          type: 'line',
-          data: {
-            labels,
-            datasets: series.flatMap((s) => [
-              {
-                label: `${s.name} P95`,
-                data: s.data.map((d) => d['95th percentile (ms)']),
-                borderColor: rgba(s.color, 1),
-                borderDash: [5, 5],
-                fill: false,
-                tension: 0.2,
-              },
-              {
-                label: `${s.name} P99`,
-                data: s.data.map((d) => d['99th percentile (ms)']),
-                borderColor: rgba(s.color, 0.6),
-                fill: false,
-                tension: 0.2,
-              },
-            ]),
-          },
-          options: { responsive: true, maintainAspectRatio: false },
-        });
-
-        new Chart(document.getElementById('jankyFramesChart'), {
+        new Chart(document.getElementById('tempChart'), {
           type: 'line',
           data: {
             labels,
             datasets: series.map((s) => ({
               label: s.name,
-              data: s.data.map((d) => d['Janky Frames']),
+              data: s.data.map((d) => d['Temperature (C)']),
               borderColor: rgba(s.color, 1),
-              backgroundColor: rgba(s.color, 0.15),
+              backgroundColor: rgba(s.color, 0.12),
               fill: true,
               tension: 0.2,
             })),
