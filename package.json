@@ -1,6 +1,6 @@
 {
   "name": "mobile-doctor",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Device-driven diagnostics for mobile apps — GFX/jank and memory benchmarking today, more categories over time.",
   "bin": {
     "mobile-doctor": "bin/mobile-doctor.js"

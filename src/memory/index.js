@@ -20,7 +20,7 @@ module.exports = {
   id: "memory",
   description: "Memory benchmarking via adb dumpsys meminfo (navigate, scroll, tap, ...)",
 
-  async run({ adb, prompt, resultsRoot, configStore, log }) {
+  async run({ adb, prompt, resultsRoot, configStore }) {
     const p = await getClack();
 
     const deviceCheck = p.spinner();
@@ -68,9 +68,14 @@ module.exports = {
     const csvPath = path.join(runDir, "summary.csv");
 
     const progress = await createProgress(iterations);
+    // Route per-step messages (swipes, taps, ...) through the same bar
+    // instead of separate log lines — interleaving plain writes with the
+    // spinner's own redraw loop corrupts its cursor tracking and renders
+    // as a stack of broken progress bars.
+    const stepLog = (message) => progress.advance(0, message);
     for (let i = 1; i <= iterations; i++) {
       progress.advance(0, `iteration ${i}/${iterations}: running interaction`);
-      await testType.run({ adb, config: testConfig, log });
+      await testType.run({ adb, config: testConfig, log: stepLog });
 
       progress.advance(0, `iteration ${i}/${iterations}: dumping meminfo`);
       const rawMemInfo = await adb.dumpMemInfo(packageName);
