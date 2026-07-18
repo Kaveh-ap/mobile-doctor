@@ -91,7 +91,7 @@ You'll be prompted for:
 
 | Prompt | Notes |
 |---|---|
-| **Test type** | `scroll` (repeated swipe up/down), `tap` (repeated tap at a point), or `navigate` (tap then Back), auto-discovered from `src/lib/test-types/` — shared with `memory` |
+| **Test type** | `scroll` (repeated swipe up/down), `scroll-aggressive` (faster, back-to-back swipes with minimal settle time — harsher jank test), `tap` (repeated tap at a point), or `navigate` (tap then Back), auto-discovered from `src/lib/test-types/` — shared with `memory` |
 | **Package name** | The app under test; remembered between runs |
 | **Run name** | Folder name under `results/gfx/`; auto-suffixed (`-1`, `-2`, ...) if it already exists |
 | **Iterations** | How many reset → interact → dump cycles to run |
@@ -139,7 +139,7 @@ You'll be prompted for:
 
 | Prompt | Notes |
 |---|---|
-| **Test type** | `navigate` (tap then Back — the default for memory churn), `scroll`, or `tap`, auto-discovered from `src/lib/test-types/` — shared with `gfx` |
+| **Test type** | `navigate` (tap then Back — the default for memory churn), `scroll`, `scroll-aggressive`, or `tap`, auto-discovered from `src/lib/test-types/` — shared with `gfx` |
 | **Package name** | The app under test; remembered between runs |
 | **Run name** | Folder name under `results/memory/`; auto-suffixed (`-1`, `-2`, ...) if it already exists |
 | **Iterations** | How many interact → dump cycles to run |
