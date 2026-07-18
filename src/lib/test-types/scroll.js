@@ -9,25 +9,34 @@ module.exports = {
 
   async promptConfig({ prompt }) {
     const cycles = await prompt.askNumber("Number of scroll cycles (one cycle = up + down)", 6);
+    const swipesPerDirection = await prompt.askNumber(
+      "Consecutive swipes per direction before reversing (higher = scrolls farther down before returning)",
+      8
+    );
     const swipeDurationMs = await prompt.askNumber("Swipe duration (ms)", 300);
     const pauseMs = await prompt.askNumber("Pause between swipes (ms)", 400);
-    return { cycles, swipeDurationMs, pauseMs };
+    return { cycles, swipesPerDirection, swipeDurationMs, pauseMs };
   },
 
   async run({ adb, config, log }) {
     const { width, height } = await adb.getScreenSize();
     const x = Math.round(width / 2);
-    const yBottom = Math.round(height * 0.8);
-    const yTop = Math.round(height * 0.3);
+    const yBottom = Math.round(height * 0.85);
+    const yTop = Math.round(height * 0.15);
+    const swipesPerDirection = config.swipesPerDirection || 1;
 
     for (let i = 1; i <= config.cycles; i++) {
-      log(`scroll cycle ${i}/${config.cycles}: swipe up`);
-      await adb.swipe(x, yBottom, x, yTop, config.swipeDurationMs);
-      await adb.sleep(config.pauseMs);
+      for (let s = 1; s <= swipesPerDirection; s++) {
+        log(`scroll cycle ${i}/${config.cycles}: swipe up (${s}/${swipesPerDirection})`);
+        await adb.swipe(x, yBottom, x, yTop, config.swipeDurationMs);
+        await adb.sleep(config.pauseMs);
+      }
 
-      log(`scroll cycle ${i}/${config.cycles}: swipe down`);
-      await adb.swipe(x, yTop, x, yBottom, config.swipeDurationMs);
-      await adb.sleep(config.pauseMs);
+      for (let s = 1; s <= swipesPerDirection; s++) {
+        log(`scroll cycle ${i}/${config.cycles}: swipe down (${s}/${swipesPerDirection})`);
+        await adb.swipe(x, yTop, x, yBottom, config.swipeDurationMs);
+        await adb.sleep(config.pauseMs);
+      }
     }
   },
 };
