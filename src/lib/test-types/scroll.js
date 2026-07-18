@@ -21,8 +21,8 @@ module.exports = {
   async run({ adb, config, log }) {
     const { width, height } = await adb.getScreenSize();
     const x = Math.round(width / 2);
-    const yBottom = Math.round(height * 0.85);
-    const yTop = Math.round(height * 0.15);
+    const yBottom = Math.round(height * 0.75);
+    const yTop = Math.round(height * 0.25);
     const swipesPerDirection = config.swipesPerDirection || 1;
 
     for (let i = 1; i <= config.cycles; i++) {
